@@ -267,16 +267,33 @@ def remove_unspeakable(text: str) -> str:
 
 
 def clean_whitespace(text: str) -> str:
-    """Collapse multiple whitespace while preserving paragraph boundaries."""
-    # Collapse 3+ newlines to double (preserve paragraph boundaries)
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    """Collapse multiple whitespace while preserving paragraph boundaries.
+
+    Single newlines within paragraphs are converted to spaces so TTS reads
+    text naturally without pauses at line breaks.
+    """
+    # Normalize line endings (Windows \r\n and old Mac \r to Unix \n)
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+
+    # Normalize paragraph breaks to exactly \n\n
+    text = re.sub(r'\n\s*\n', '\n\n', text)
+
+    # Mark paragraph breaks with placeholder
+    PARA_MARKER = '\x00PARA\x00'
+    text = text.replace('\n\n', PARA_MARKER)
+
+    # Convert remaining single newlines to spaces (join lines within paragraph)
+    text = text.replace('\n', ' ')
+
+    # Restore paragraph breaks
+    text = text.replace(PARA_MARKER, '\n\n')
+
     # Collapse multiple spaces to single
     text = re.sub(r' {2,}', ' ', text)
-    # Strip spaces around newlines
-    text = re.sub(r' *\n *', '\n', text)
-    # Remove lines that are only whitespace
-    text = re.sub(r'\n\s+\n', '\n\n', text)
-    # Strip leading/trailing
+
+    # Clean up spaces around paragraph breaks
+    text = re.sub(r' *\n\n *', '\n\n', text)
+
     return text.strip()
 
 

@@ -60,11 +60,30 @@ def extract_from_pdf(filepath: str) -> str:
 
 
 def normalize_text(text: str) -> str:
-    """Normalize whitespace and clean up text."""
+    """Normalize whitespace and clean up text.
+
+    PDF extractors often put newlines after every line (every few words).
+    This function joins lines within paragraphs while preserving actual
+    paragraph breaks (double newlines).
+    """
     import re
-    # Replace multiple spaces/tabs with single space
+
+    # Step 1: Normalize paragraph breaks - mark them with a placeholder
+    # Convert 2+ newlines to placeholder (these are real paragraph breaks)
+    text = re.sub(r'\n\s*\n', '\n\n', text)  # Normalize to exactly \n\n
+    PARA_MARKER = '\x00PARA\x00'
+    text = text.replace('\n\n', PARA_MARKER)
+
+    # Step 2: Convert remaining single newlines to spaces (join lines within paragraph)
+    text = re.sub(r'\n', ' ', text)
+
+    # Step 3: Restore paragraph breaks
+    text = text.replace(PARA_MARKER, '\n\n')
+
+    # Step 4: Clean up multiple spaces
     text = re.sub(r'[ \t]+', ' ', text)
-    # Replace multiple newlines with double newline (paragraph break)
-    text = re.sub(r'\n{3,}', '\n\n', text)
-    # Strip leading/trailing whitespace
+
+    # Step 5: Clean up spaces around paragraph breaks
+    text = re.sub(r' *\n\n *', '\n\n', text)
+
     return text.strip()
