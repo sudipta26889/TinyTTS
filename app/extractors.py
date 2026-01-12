@@ -68,6 +68,14 @@ def normalize_text(text: str) -> str:
     """
     import re
 
+    # Step 0: Normalize ALL line-break characters to \n (PDF artifacts)
+    text = text.replace('\r\n', '\n')
+    text = text.replace('\r', '\n')
+    text = text.replace('\x0c', '\n')  # form feed
+    text = text.replace('\x0b', '\n')  # vertical tab
+    text = text.replace('\u2028', '\n')  # Unicode line separator
+    text = text.replace('\u2029', '\n\n')  # Unicode paragraph separator
+
     # Step 1: Normalize paragraph breaks - mark them with a placeholder
     # Convert 2+ newlines to placeholder (these are real paragraph breaks)
     text = re.sub(r'\n\s*\n', '\n\n', text)  # Normalize to exactly \n\n

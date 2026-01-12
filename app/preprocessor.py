@@ -275,8 +275,15 @@ def clean_whitespace(text: str) -> str:
     Single newlines within paragraphs are converted to spaces so TTS reads
     text naturally without pauses at line breaks.
     """
-    # Normalize line endings (Windows \r\n and old Mac \r to Unix \n)
-    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    # Normalize ALL line-break characters to \n (including PDF artifacts)
+    # \r\n = Windows, \r = old Mac, \x0c = form feed, \x0b = vertical tab
+    # \u2028 = Unicode line separator, \u2029 = Unicode paragraph separator
+    text = text.replace('\r\n', '\n')
+    text = text.replace('\r', '\n')
+    text = text.replace('\x0c', '\n')
+    text = text.replace('\x0b', '\n')
+    text = text.replace('\u2028', '\n')
+    text = text.replace('\u2029', '\n\n')
 
     # Normalize paragraph breaks to exactly \n\n
     text = re.sub(r'\n\s*\n', '\n\n', text)
