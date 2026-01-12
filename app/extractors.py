@@ -65,6 +65,9 @@ def normalize_text(text: str) -> str:
     PDF extractors often put newlines after every line (every few words).
     This function joins lines within paragraphs while preserving actual
     paragraph breaks (double newlines).
+
+    Handles PyPDF2's word-per-line format where words are separated by
+    '\\n \\n' (newline-space-newline) and paragraphs by '\\n \\n \\n' or more.
     """
     import re
 
@@ -76,22 +79,44 @@ def normalize_text(text: str) -> str:
     text = text.replace('\u2028', '\n')  # Unicode line separator
     text = text.replace('\u2029', '\n\n')  # Unicode paragraph separator
 
-    # Step 1: Normalize paragraph breaks - mark them with a placeholder
-    # Convert 2+ newlines to placeholder (these are real paragraph breaks)
-    text = re.sub(r'\n\s*\n', '\n\n', text)  # Normalize to exactly \n\n
-    PARA_MARKER = '\x00PARA\x00'
-    text = text.replace('\n\n', PARA_MARKER)
+    # Step 1: Detect PyPDF2 word-per-line format
+    # Pattern: words separated by '\n \n' (newline-space-newline)
+    word_per_line_pattern = '\n \n'  # NOT raw string - need actual newlines
+    if word_per_line_pattern in text:
+        # Handle PyPDF2 word-per-line format
+        # Paragraph breaks: '\n \n \n' or more (2+ spaces between newlines)
+        # Word separators: '\n \n' (single space between newlines)
+        PARA_MARKER = '\x00PARA\x00'
 
-    # Step 2: Convert remaining single newlines to spaces (join lines within paragraph)
-    text = re.sub(r'\n', ' ', text)
+        # First, mark paragraph breaks (3+ newlines with spaces between)
+        # Pattern: \n followed by ( \n) repeated 2+ times = paragraph break
+        text = re.sub(r'\n( \n){2,}', PARA_MARKER, text)
 
-    # Step 3: Restore paragraph breaks
-    text = text.replace(PARA_MARKER, '\n\n')
+        # Now convert remaining \n \n (word separators) to single space
+        text = text.replace('\n \n', ' ')
 
-    # Step 4: Clean up multiple spaces
+        # Convert any remaining single newlines to spaces
+        text = text.replace('\n', ' ')
+
+        # Restore paragraph breaks
+        text = text.replace(PARA_MARKER, '\n\n')
+    else:
+        # Standard format: use traditional paragraph detection
+        # Convert 2+ newlines (possibly with whitespace) to paragraph breaks
+        text = re.sub(r'\n[ \t]*\n', '\n\n', text)
+        PARA_MARKER = '\x00PARA\x00'
+        text = text.replace('\n\n', PARA_MARKER)
+
+        # Convert remaining single newlines to spaces
+        text = text.replace('\n', ' ')
+
+        # Restore paragraph breaks
+        text = text.replace(PARA_MARKER, '\n\n')
+
+    # Clean up multiple spaces
     text = re.sub(r'[ \t]+', ' ', text)
 
-    # Step 5: Clean up spaces around paragraph breaks
+    # Clean up spaces around paragraph breaks
     text = re.sub(r' *\n\n *', '\n\n', text)
 
     return text.strip()
