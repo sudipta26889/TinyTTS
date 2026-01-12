@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 import time
 from typing import Optional, Callable
@@ -10,11 +11,61 @@ from app.preprocessor import preprocess_for_tts
 
 MAX_RETRIES = 3
 RETRY_DELAY = 1.0  # seconds
+MIN_SPEAKABLE_CHARS = 3  # Minimum alphanumeric characters for valid TTS input
 
 
 class TTSError(Exception):
     """TTS processing error."""
     pass
+
+
+class ValidationError(TTSError):
+    """Raised when chunk validation fails before processing."""
+    pass
+
+
+def validate_chunk_content(chunk: str, chunk_index: int, total: int) -> tuple[bool, str]:
+    """Validate a chunk has enough speakable content for TTS.
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not chunk or not chunk.strip():
+        return False, f"Chunk {chunk_index}/{total} is empty"
+
+    # Check for minimum alphanumeric content
+    alphanumeric = re.sub(r'[^a-zA-Z0-9]', '', chunk)
+    if len(alphanumeric) < MIN_SPEAKABLE_CHARS:
+        return False, f"Chunk {chunk_index}/{total} has insufficient speakable content: '{chunk[:50]}...'"
+
+    # Check chunk isn't just numbers/punctuation
+    letters = re.sub(r'[^a-zA-Z]', '', chunk)
+    if len(letters) < 2:
+        return False, f"Chunk {chunk_index}/{total} has no readable words: '{chunk[:50]}...'"
+
+    return True, ""
+
+
+def validate_all_chunks(chunks: list[str]) -> list[str]:
+    """Validate all chunks before processing. Raises ValidationError if any fail.
+
+    Returns:
+        List of valid chunks (filtered)
+    """
+    valid_chunks = []
+    errors = []
+
+    for i, chunk in enumerate(chunks, 1):
+        is_valid, error = validate_chunk_content(chunk, i, len(chunks))
+        if is_valid:
+            valid_chunks.append(chunk)
+        else:
+            errors.append(error)
+
+    if not valid_chunks:
+        raise ValidationError(f"No valid chunks to convert. Issues found:\n" + "\n".join(errors[:5]))
+
+    return valid_chunks
 
 
 def get_tts_client() -> openai.OpenAI:
@@ -133,14 +184,26 @@ def convert_text_to_speech(
 
     Raises:
         TTSError: If conversion fails
+        ValidationError: If chunks fail validation before processing
     """
+    # Step 1: Preprocess text
     text = preprocess_for_tts(text)
-    client = get_tts_client()
+
+    # Step 2: Generate chunks
     chunks = list(chunk_text(text))
+
+    if not chunks:
+        raise TTSError("No text to convert after preprocessing")
+
+    # Step 3: Validate ALL chunks BEFORE any GPU processing
+    chunks = validate_all_chunks(chunks)
     total_chunks = len(chunks)
 
     if total_chunks == 0:
-        raise TTSError("No text to convert")
+        raise TTSError("No valid chunks to convert")
+
+    # Step 4: Now safe to start TTS processing
+    client = get_tts_client()
 
     temp_files = []
     successful_chunk_size = Config.INITIAL_CHUNK_SIZE
