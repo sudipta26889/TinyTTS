@@ -1,0 +1,38 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "TinyTTS: Run",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "FLASK_ENV": "development",
+        "FLASK_DEBUG": "1",
+        "DATA_DIR": "${workspaceFolder}/data"
+      },
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "TinyTTS: Setup"
+    },
+    {
+      "name": "TinyTTS: Debug",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "FLASK_ENV": "development",
+        "FLASK_DEBUG": "1",
+        "DATA_DIR": "${workspaceFolder}/data"
+      },
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "preLaunchTask": "TinyTTS: Setup"
+    }
+  ]
+}

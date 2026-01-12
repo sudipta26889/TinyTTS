@@ -1,0 +1,59 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "TinyTTS: Setup",
+      "type": "shell",
+      "command": "mkdir -p data/audio data/sources && npm install && npm run build:css",
+      "group": "build",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "TinyTTS: Build CSS",
+      "type": "shell",
+      "command": "npm run build:css",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "TinyTTS: Watch CSS",
+      "type": "shell",
+      "command": "npm run watch:css",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "TinyTTS: Docker Build",
+      "type": "shell",
+      "command": "docker compose build",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "TinyTTS: Docker Up",
+      "type": "shell",
+      "command": "docker compose up -d",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "TinyTTS: Docker Down",
+      "type": "shell",
+      "command": "docker compose down",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "TinyTTS: Docker Logs",
+      "type": "shell",
+      "command": "docker compose logs -f",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

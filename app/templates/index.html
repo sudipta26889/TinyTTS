@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TinyTTS</title>
+    <link rel="stylesheet" href="/static/css/output.css">
+</head>
+<body class="h-full bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
+    <div class="min-h-full">
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800 shadow-sm">
+            <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-blue-600 dark:text-blue-400">TinyTTS</h1>
+                <button id="theme-toggle" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <span class="dark:hidden">🌙</span>
+                    <span class="hidden dark:inline">☀️</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="max-w-4xl mx-auto px-4 py-8 space-y-8">
+            <!-- Converter Card -->
+            <div class="card">
+                <!-- Tab Toggle -->
+                <div class="flex mb-6 border-b border-gray-200 dark:border-gray-700">
+                    <button id="tab-paste" class="tab-btn active px-4 py-2 font-medium border-b-2 border-blue-600 text-blue-600 dark:text-blue-400">
+                        Paste Text
+                    </button>
+                    <button id="tab-upload" class="tab-btn px-4 py-2 font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                        Upload File
+                    </button>
+                </div>
+
+                <form id="convert-form" enctype="multipart/form-data">
+                    <!-- Paste Input -->
+                    <div id="input-paste" class="mb-4">
+                        <textarea
+                            name="text"
+                            id="text-input"
+                            rows="8"
+                            class="input-field resize-y"
+                            placeholder="Paste your text here..."
+                        ></textarea>
+                    </div>
+
+                    <!-- Upload Input -->
+                    <div id="input-upload" class="mb-4 hidden">
+                        <label class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg class="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                                    <span class="font-semibold">Click to upload</span> or drag and drop
+                                </p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">.txt, .md, or .pdf</p>
+                            </div>
+                            <input type="file" name="file" id="file-input" class="hidden" accept=".txt,.md,.pdf">
+                        </label>
+                        <p id="file-name" class="mt-2 text-sm text-gray-600 dark:text-gray-400 hidden"></p>
+                    </div>
+
+                    <!-- Options -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label for="voice-select" class="block text-sm font-medium mb-1">Voice</label>
+                            <select name="voice" id="voice-select" class="input-field">
+                                {% for voice in voices %}
+                                <option value="{{ voice }}" {% if voice == default_voice %}selected{% endif %}>
+                                    {{ voice|capitalize }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="speed-select" class="block text-sm font-medium mb-1">Speed</label>
+                            <select name="speed" id="speed-select" class="input-field">
+                                {% for speed in speeds %}
+                                <option value="{{ speed }}" {% if speed == default_speed %}selected{% endif %}>
+                                    {{ speed }}x
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" id="convert-btn" class="btn-primary w-full">
+                        Convert to Speech
+                    </button>
+                </form>
+
+                <!-- Progress -->
+                <div id="progress-container" class="mt-6 hidden">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span id="progress-text">Processing...</span>
+                        <span id="progress-percent">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Result -->
+                <div id="result-container" class="mt-6 hidden">
+                    <div class="flex items-center gap-4">
+                        <audio id="audio-player" controls class="flex-1"></audio>
+                        <a id="download-btn" class="btn-secondary flex items-center gap-2" download>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            Download
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Error -->
+                <div id="error-container" class="mt-6 hidden">
+                    <div class="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+                        <span id="error-text"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Card -->
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4">History</h2>
+
+                <!-- Search -->
+                <div class="flex gap-4 mb-6">
+                    <input
+                        type="text"
+                        id="search-input"
+                        class="input-field flex-1"
+                        placeholder="Search history..."
+                    >
+                    <input
+                        type="date"
+                        id="from-date"
+                        class="input-field w-40"
+                        placeholder="From"
+                    >
+                    <input
+                        type="date"
+                        id="to-date"
+                        class="input-field w-40"
+                        placeholder="To"
+                    >
+                </div>
+
+                <!-- History List -->
+                <div id="history-list" class="space-y-2">
+                    <p class="text-gray-500 dark:text-gray-400 text-center py-4">No history yet</p>
+                </div>
+
+                <!-- Load More -->
+                <button id="load-more-btn" class="btn-secondary w-full mt-4 hidden">
+                    Load More
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

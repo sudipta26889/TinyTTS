@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  tinytts:
+    image: ghcr.io/sudipta26889/tinytts:latest
+    ports:
+      - "4040:4040"
+    volumes:
+      - tinytts_data:/data
+    environment:
+      - LITELLM_BASE_URL=${LITELLM_BASE_URL}
+      - LITELLM_API_KEY=${LITELLM_API_KEY}
+      - TTS_MODEL=${TTS_MODEL:-tts-kokoro}
+      - DEFAULT_VOICE=${DEFAULT_VOICE:-alloy}
+      - DEFAULT_SPEED=${DEFAULT_SPEED:-1.0}
+      - MAX_STORAGE_GB=${MAX_STORAGE_GB:-10}
+    restart: unless-stopped
+
+volumes:
+  tinytts_data:
