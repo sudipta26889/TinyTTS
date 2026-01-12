@@ -51,12 +51,15 @@ def convert_lists(text: str) -> str:
     """Convert bullet and numbered lists to sentences with pauses.
 
     Each list item becomes a separate sentence so TTS adds natural pauses.
+    Handles ASCII bullets (-, *, +) and Unicode bullets (•, ◦, ▪, ▸, ►, ●, ○).
     """
     lines = text.split('\n')
     result_lines = []
     current_list_items = []
 
-    bullet_pattern = re.compile(r'^[\s]*[-*+]\s*(.*)$')
+    # ASCII bullets: -, *, +
+    # Unicode bullets: •◦▪▸►●○‣⁃
+    bullet_pattern = re.compile(r'^[\s]*[-*+•◦▪▸►●○‣⁃]\s*(.*)$')
     number_pattern = re.compile(r'^[\s]*\d+[.)]\s+(.+)$')
 
     def flush_list():
