@@ -11,7 +11,7 @@ services:
       - LITELLM_BASE_URL=${LITELLM_BASE_URL}
       - LITELLM_API_KEY=${LITELLM_API_KEY}
       - TTS_MODEL=${TTS_MODEL:-tts-kokoro}
-      - DEFAULT_VOICE=${DEFAULT_VOICE:-alloy}
+      - DEFAULT_VOICE=${DEFAULT_VOICE:-af_alloy}
       - DEFAULT_SPEED=${DEFAULT_SPEED:-1.0}
       - MAX_STORAGE_GB=${MAX_STORAGE_GB:-10}
     restart: unless-stopped
