@@ -56,35 +56,35 @@ class TestStripMarkdown:
 class TestConvertLists:
     def test_converts_bullet_list(self):
         text = "- Apple\n- Banana\n- Orange"
-        assert convert_lists(text) == "Apple. Banana. Orange."
+        assert convert_lists(text) == "Apple.\nBanana.\nOrange."
 
     def test_converts_asterisk_bullets(self):
         text = "* First\n* Second"
-        assert convert_lists(text) == "First. Second."
+        assert convert_lists(text) == "First.\nSecond."
 
     def test_converts_plus_bullets(self):
         text = "+ One\n+ Two"
-        assert convert_lists(text) == "One. Two."
+        assert convert_lists(text) == "One.\nTwo."
 
     def test_converts_numbered_list(self):
         text = "1. First\n2. Second\n3. Third"
-        assert convert_lists(text) == "First. Second. Third."
+        assert convert_lists(text) == "First.\nSecond.\nThird."
 
     def test_converts_numbered_with_parens(self):
         text = "1) First\n2) Second"
-        assert convert_lists(text) == "First. Second."
+        assert convert_lists(text) == "First.\nSecond."
 
     def test_preserves_existing_punctuation(self):
         text = "- Already has period.\n- No period"
-        assert convert_lists(text) == "Already has period. No period."
+        assert convert_lists(text) == "Already has period.\nNo period."
 
     def test_skips_empty_items(self):
         text = "- First\n-\n- Third"
-        assert convert_lists(text) == "First. Third."
+        assert convert_lists(text) == "First.\nThird."
 
     def test_handles_indented_bullets(self):
         text = "  - Indented\n  - Also indented"
-        assert convert_lists(text) == "Indented. Also indented."
+        assert convert_lists(text) == "Indented.\nAlso indented."
 
     def test_preserves_non_list_text(self):
         text = "Normal paragraph.\n\n- List item\n\nAnother paragraph."

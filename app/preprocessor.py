@@ -48,7 +48,10 @@ def strip_markdown(text: str) -> str:
 
 
 def convert_lists(text: str) -> str:
-    """Convert bullet and numbered lists to simple concatenation."""
+    """Convert bullet and numbered lists to sentences with pauses.
+
+    Each list item becomes a separate sentence so TTS adds natural pauses.
+    """
     lines = text.split('\n')
     result_lines = []
     current_list_items = []
@@ -58,15 +61,12 @@ def convert_lists(text: str) -> str:
 
     def flush_list():
         if current_list_items:
-            items = []
             for item in current_list_items:
                 item = item.strip()
                 if item:
                     if item[-1] not in '.!?':
                         item += '.'
-                    items.append(item)
-            if items:
-                result_lines.append(' '.join(items))
+                    result_lines.append(item)
             current_list_items.clear()
 
     for line in lines:
