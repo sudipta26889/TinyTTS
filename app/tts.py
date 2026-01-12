@@ -6,12 +6,13 @@ from typing import Optional, Callable
 import openai
 from pydub import AudioSegment
 from app.config import Config
-from app.chunker import chunk_text
+from app.chunker import chunk_text, split_into_sentences
 from app.preprocessor import preprocess_for_tts
 
 MAX_RETRIES = 3
 RETRY_DELAY = 1.0  # seconds
 MIN_SPEAKABLE_CHARS = 3  # Minimum alphanumeric characters for valid TTS input
+MIN_SPEAKABLE_LETTERS = 2  # Minimum letters for readable words
 
 
 class TTSError(Exception):
@@ -24,48 +25,114 @@ class ValidationError(TTSError):
     pass
 
 
-def validate_chunk_content(chunk: str, chunk_index: int, total: int) -> tuple[bool, str]:
-    """Validate a chunk has enough speakable content for TTS.
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
+def is_chunk_valid(chunk: str) -> bool:
+    """Check if a chunk is valid for TTS processing."""
     if not chunk or not chunk.strip():
-        return False, f"Chunk {chunk_index}/{total} is empty"
-
-    # Check for minimum alphanumeric content
+        return False
+    # Must have minimum alphanumeric content
     alphanumeric = re.sub(r'[^a-zA-Z0-9]', '', chunk)
     if len(alphanumeric) < MIN_SPEAKABLE_CHARS:
-        return False, f"Chunk {chunk_index}/{total} has insufficient speakable content: '{chunk[:50]}...'"
-
-    # Check chunk isn't just numbers/punctuation
+        return False
+    # Must have actual letters (not just numbers)
     letters = re.sub(r'[^a-zA-Z]', '', chunk)
-    if len(letters) < 2:
-        return False, f"Chunk {chunk_index}/{total} has no readable words: '{chunk[:50]}...'"
+    if len(letters) < MIN_SPEAKABLE_LETTERS:
+        return False
+    return True
 
-    return True, ""
 
+def repair_chunks(chunks: list[str], max_chunk_size: int) -> list[str]:
+    """Repair invalid chunks by merging or splitting.
 
-def validate_all_chunks(chunks: list[str]) -> list[str]:
-    """Validate all chunks before processing. Raises ValidationError if any fail.
-
-    Returns:
-        List of valid chunks (filtered)
+    Strategy:
+    1. Drop chunks with no speakable content
+    2. Merge short chunks with adjacent chunks
+    3. Split chunks that are too long
+    4. Final filter for any remaining invalid chunks
     """
-    valid_chunks = []
-    errors = []
+    if not chunks:
+        return []
 
-    for i, chunk in enumerate(chunks, 1):
-        is_valid, error = validate_chunk_content(chunk, i, len(chunks))
-        if is_valid:
-            valid_chunks.append(chunk)
+    repaired = []
+    pending = None  # Chunk waiting to be merged
+
+    for chunk in chunks:
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+
+        # Check if chunk has any speakable content
+        if not is_chunk_valid(chunk):
+            # Try to merge with pending if exists
+            if pending:
+                pending = pending + " " + chunk
+            # Otherwise just drop it
+            continue
+
+        # Valid chunk - check if we need to merge with pending
+        if pending:
+            merged = pending + " " + chunk
+            if len(merged) <= max_chunk_size:
+                # Merge successful
+                chunk = merged
+                pending = None
+            else:
+                # Can't merge, flush pending first
+                if is_chunk_valid(pending):
+                    repaired.append(pending)
+                pending = None
+
+        # Check if chunk is too long
+        if len(chunk) > max_chunk_size:
+            # Split by sentences
+            sentences = split_into_sentences(chunk)
+            current = ""
+            for sent in sentences:
+                if not sent.strip():
+                    continue
+                if len(current) + len(sent) + 1 <= max_chunk_size:
+                    current = (current + " " + sent).strip() if current else sent
+                else:
+                    if current and is_chunk_valid(current):
+                        repaired.append(current)
+                    current = sent
+            if current:
+                if is_chunk_valid(current):
+                    repaired.append(current)
+                else:
+                    pending = current
         else:
-            errors.append(error)
+            repaired.append(chunk)
 
-    if not valid_chunks:
-        raise ValidationError(f"No valid chunks to convert. Issues found:\n" + "\n".join(errors[:5]))
+    # Flush any remaining pending
+    if pending and is_chunk_valid(pending):
+        repaired.append(pending)
 
-    return valid_chunks
+    return repaired
+
+
+def validate_and_repair_chunks(chunks: list[str], max_chunk_size: int = None) -> list[str]:
+    """Validate all chunks and repair any invalid ones.
+
+    Two-pass approach:
+    1. First pass: repair invalid chunks (merge/split)
+    2. Second pass: final validation, drop any remaining invalid
+    """
+    if max_chunk_size is None:
+        max_chunk_size = Config.INITIAL_CHUNK_SIZE
+
+    # First pass: repair
+    repaired = repair_chunks(chunks, max_chunk_size)
+
+    # Second pass: final validation
+    final_chunks = []
+    for chunk in repaired:
+        if is_chunk_valid(chunk):
+            final_chunks.append(chunk)
+
+    if not final_chunks:
+        raise ValidationError("No valid chunks after repair. Input may not contain speakable text.")
+
+    return final_chunks
 
 
 def get_tts_client() -> openai.OpenAI:
@@ -189,20 +256,21 @@ def convert_text_to_speech(
     # Step 1: Preprocess text
     text = preprocess_for_tts(text)
 
-    # Step 2: Generate chunks
+    # Step 2: Generate initial chunks
     chunks = list(chunk_text(text))
 
     if not chunks:
         raise TTSError("No text to convert after preprocessing")
 
-    # Step 3: Validate ALL chunks BEFORE any GPU processing
-    chunks = validate_all_chunks(chunks)
+    # Step 3: Validate and REPAIR all chunks BEFORE any GPU processing
+    # This ensures no invalid chunks reach the TTS API
+    chunks = validate_and_repair_chunks(chunks, Config.INITIAL_CHUNK_SIZE)
     total_chunks = len(chunks)
 
     if total_chunks == 0:
         raise TTSError("No valid chunks to convert")
 
-    # Step 4: Now safe to start TTS processing
+    # Step 4: Now safe to start TTS processing - all chunks are validated
     client = get_tts_client()
 
     temp_files = []
