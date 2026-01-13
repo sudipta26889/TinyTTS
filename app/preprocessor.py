@@ -7,7 +7,13 @@ p = inflect.engine()
 
 
 def strip_markdown(text: str) -> str:
-    """Remove markdown formatting, keeping plain text content."""
+    """Remove markdown formatting, keeping plain text content.
+
+    For TTS, headers and sub-headers are converted to plain text
+    followed by double newlines to create natural pauses:
+    - # Headers -> text + pause (~1000ms)
+    - Lines ending with : -> text + pause (~750ms for sub-headers)
+    """
     # Code blocks first (before other patterns can match inside them)
     text = re.sub(r'```[\s\S]*?```', '', text)
 
@@ -20,8 +26,9 @@ def strip_markdown(text: str) -> str:
     # Links - keep text
     text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
 
-    # Headers
-    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    # Headers - strip # markers but preserve the header text with pause after
+    # Match header line and ensure double newline follows for TTS pause
+    text = re.sub(r'^#{1,6}\s+(.+?)$', r'\1\n\n', text, flags=re.MULTILINE)
 
     # Bold
     text = re.sub(r'\*\*(.+?)\*\*', r'\1', text, flags=re.DOTALL)
@@ -43,6 +50,10 @@ def strip_markdown(text: str) -> str:
 
     # HTML tags
     text = re.sub(r'<[^>]+>', '', text)
+
+    # Sub-headers: lines ending with colon (like "Capabilities:", "Hard restrictions:")
+    # Add pause after these for TTS to read them as section introductions
+    text = re.sub(r'^([A-Z][^:\n]*:)\s*$', r'\1\n\n', text, flags=re.MULTILINE)
 
     return text
 

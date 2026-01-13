@@ -1,6 +1,6 @@
 import os
 import markdown2
-from PyPDF2 import PdfReader
+import pymupdf4llm
 
 
 def extract_text_from_file(filepath: str) -> str:
@@ -47,16 +47,19 @@ def extract_from_markdown(filepath: str) -> str:
 
 
 def extract_from_pdf(filepath: str) -> str:
-    """Extract text from a PDF file."""
-    reader = PdfReader(filepath)
-    text_parts = []
+    """Extract text from a PDF file as Markdown.
 
-    for page in reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            text_parts.append(page_text)
+    Uses PyMuPDF4LLM to preserve document structure including:
+    - Headers (# H1, ## H2, etc.)
+    - Bold text (**text**)
+    - Bullet points
+    - Paragraph breaks
 
-    return normalize_text("\n\n".join(text_parts))
+    The Markdown output is then processed by the TTS preprocessor
+    which converts headers and bullets to proper pause markers.
+    """
+    markdown_text = pymupdf4llm.to_markdown(filepath)
+    return markdown_text.strip()
 
 
 def normalize_text(text: str) -> str:
