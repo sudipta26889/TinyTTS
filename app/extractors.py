@@ -100,6 +100,19 @@ def normalize_text(text: str) -> str:
 
         # Restore paragraph breaks
         text = text.replace(PARA_MARKER, '\n\n')
+
+        # Step 2: Re-introduce paragraph breaks based on content structure
+        # PyPDF2 loses structure - we need to restore it based on patterns
+
+        # Add breaks before numbered sections (1. Purpose, 2. Product, etc.)
+        # Match: space + digit(s) + period + space + Capital letter word
+        # This catches "1. Purpose", "2. Product", "10. Section", "6.1 Subsection"
+        text = re.sub(r' (\d+\.(?:\d+)?) ([A-Z][a-z]+)', r'\n\n\1 \2', text)
+
+        # Add breaks before bullet points (●, ○, -, *, •)
+        # Each bullet should start a new line for TTS pauses
+        text = re.sub(r' ([●○•◦▪▸►]) ', r'\n\n\1 ', text)
+
     else:
         # Standard format: use traditional paragraph detection
         # Convert 2+ newlines (possibly with whitespace) to paragraph breaks
